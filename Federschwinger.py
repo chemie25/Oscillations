@@ -18,12 +18,12 @@ m = 0.075   # Masse [m] = kg
 k = 0.05    # Dämpfung [k] = Ns/m
 
 # Resonanz
-resonanz = True
+resonance = True
 s = 0.1     # Auslenkung [s] = m
 f = 0.793   # Frequenz [f] = 1/s
 
 # Anfangswerte
-if not resonanz:
+if not resonance:
     x0 = 1  # Auslenkung zu Beginn [x] = m
     v0 = 0  # Geschwindigkeit zu Beginn [v] = m/s
 else:
@@ -34,10 +34,10 @@ steps = time * fps
 t = np.linspace(0, time, steps)
 
 def resonance_delta(t):
-    return s * np.sin(2 * np.pi * f * t) if resonanz else 0
+    return s * np.sin(2 * np.pi * f * t) if resonance else 0
 
-# solve differential equation
-def sim_x(t, x0 = 0, v0 = 0):
+# solve differential equation(s)
+def sim_x(t, x0, v0):
     def ivp(t, x):    
         F_Hooke     = -D * x[0]
         F_Dämpfung  = -k * x[1]
@@ -73,20 +73,20 @@ class Style():
 
 class GraphVisualisation():
     def __init__(self, ax):
-        ax.set_xlabel("Zeit $t$ in $s$")
+        ax.set_xlabel("$t$ in $s$")
         ax.set_xlim(0, time)
-        ax.set_ylabel("Auslenkung $x$" if resonanz else "Auslenkung $x$, Amplitude $a$ in $m$ in $m$")
+        ax.set_ylabel("$x$ in $m$" if resonance else "$x$, $a$ in $m$")
         # ax.set_ylim(-x0*1.25, x0*1.25)
 
         ax.plot(t, x, linestyle="--", color="C0")
-        self.line_x, = ax.plot([], [], label="Auslenkung $x$", color="C0")
+        self.line_x, = ax.plot([], [], label="$x$", color="C0")
 
-        if not resonanz:
+        if not resonance:
             ax.plot(t, a, linestyle="--", color="C2")
-        self.line_a, = ax.plot([], [], label="Amplitude $a$",  color="C2")
-        self.line_a.set_visible(not resonanz)
+        self.line_a, = ax.plot([], [], label="$a$",  color="C2")
+        self.line_a.set_visible(not resonance)
 
-        if not resonanz:
+        if not resonance:
             ax.legend()
         
     def update(self, i):
@@ -157,8 +157,8 @@ for f in frequencies:
     amplitudes.append(np.max(np.abs(x[-fps * 5:])))
     
 
-ax.set_xlabel("Resonanzfrequenz $f_{Resonanz}$ in $\\frac{1}{s}$")
-ax.set_ylabel("Amplitude $a$ in $m$")
+ax.set_xlabel("$f_{Resonanz}$ in $\\frac{1}{s}$")
+ax.set_ylabel("$a$ in $m$")
     
 ax.plot(frequencies, amplitudes, lw=4, color="C1")
 
