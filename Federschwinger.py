@@ -5,51 +5,54 @@ import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.animation as animation
 
+from dataclasses import dataclass, field
+
 fps = 60 # 1 / seconds
-time = 30 # seconds
+time = 15 # seconds
 
-# Konstanten
-D = 2.1     # Fenderkonstante für beide Federn gleichzeitig [D] = N/m
-m = 0.075   # Masse [m] = kg
-k = 0.05    # Dämpfung [k] = Ns/m
+@dataclass
+class Config():
+    D = 2.1
+    # Konstanten
+    D = 2.1     # Fenderkonstante für beide Federn gleichzeitig [D] = N/m
+    m = 0.075   # Masse [m] = kg
+    k = 0.05    # Dämpfung [k] = Ns/m
 
-# Resonanz
-resonance = True
-s = 0.1     # Auslenkung [s] = m
-f = 0.793   # Frequenz [f] = 1/s
+    # Resonanz
+    resonance = False
+    s = 0.1     # Auslenkung [s] = m
+    f = 0.793   # Frequenz [f] = 1/s
 
-# Anfangswerte
-if not resonance:
-    x0 = 1  # Auslenkung zu Beginn [x] = m
-    v0 = 0  # Geschwindigkeit zu Beginn [v] = m/s
-else:
     x0 = 0
     v0 = 0
 
 steps = time * fps
 t = np.linspace(0, time, steps)
 
-def resonance_delta(t):
-    return s * np.sin(2 * np.pi * f * t) if resonance else 0
+
+def resonance_delta(t, c):
+    return c.s * np.sin(2 * np.pi * c.f * t) if c.resonance else 0
 
 # solve differential equation(s)
-def solve(t, x0, v0):
+def solve(t, c):
     def ivp(t, x):    
-        F_Hooke     = -D * x[0]
-        F_Dämpfung  = -k * x[1]
-        F_Resonanz  = +D * resonance_delta(t)
-        return (x[1], (F_Hooke + F_Dämpfung + F_Resonanz) / m)
+        F_Hooke     = -c.D * x[0]
+        F_Dämpfung  = -c.k * x[1]
+        F_Resonanz  = +c.D * resonance_delta(t, c)
+        return (x[1], (F_Hooke + F_Dämpfung + F_Resonanz) / c.m)
     
-    sol = solve_ivp(ivp, [0, t[-1]], y0=[x0, v0], t_eval=t)
+    sol = solve_ivp(ivp, [0, t[-1]], y0=[c.x0, c.v0], t_eval=t)
     return sol.y[0], sol.y[1]
 
-def E_kin(v):   return 1/2 * m * v**2
-def E_Spann(x): return 1/2 * D * x**2
+def E_kin(v):   return 1/2 * c.m * v**2
+def E_Spann(x): return 1/2 * c.D * x**2
 
-xt, vt = solve(t, x0, v0)
+c = Config()
+c.x0 = 1
+xt, vt = solve(t, c)
 
 # calculate amplitude (without resonance!)
-at = x0 * np.e ** (-(k/(2*m)) * t)
+at = c.x0 * np.e ** (-(c.k/(2*c.m)) * t)
 
 class Style():
     # background_color = "#fcf5e4"
@@ -87,18 +90,18 @@ class GraphVisualisation():
     def __init__(self, ax):
         ax.set_xlabel("$t$ in $s$")
         ax.set_xlim(0, time)
-        ax.set_ylabel("$x$ in $m$" if resonance else "$x$, $a$ in $m$")
+        ax.set_ylabel("$x$ in $m$" if c.resonance else "$x$, $a$ in $m$")
         # ax.set_ylim(-x0*1.25, x0*1.25)
 
         ax.plot(t, xt, linestyle="--", color="C0")
         self.line_x, = ax.plot([], [], label="$x$", color="C0")
 
-        if not resonance:
+        if not c.resonance:
             ax.plot(t, at, linestyle="--", color="C2")
         self.line_a, = ax.plot([], [], label="$a$",  color="C2")
-        self.line_a.set_visible(not resonance)
+        self.line_a.set_visible(not c.resonance)
 
-        if not resonance:
+        if not c.resonance:
             ax.legend()
         
     def update(self, i):
@@ -123,7 +126,7 @@ class SimVisualisation():
         r = 0.25
         n = 12; l = 1.1
         def spring(b):
-            dl = l - b * resonance_delta(t[i])
+            dl = l - b * resonance_delta(t[i], c)
             return ([(b*dl + xt[i]) * (m/(n-1)) - b*(dl + r) for m in range(n)],
                     [2*r * (m % 2 - 0.5) * (0<m<n-1)         for m in range(n)])
         
@@ -170,13 +173,12 @@ def render(classes, rows, cols, gridspec_kw = {}, name = None):
 
 render([SimVisualisation, EnergyVisualisation],
     1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
-    # name="video"
+    # name="energie"
     )
-
 
 render([SimVisualisation, GraphVisualisation],
     1, 2, gridspec_kw={"width_ratios": [1, 1]}, 
-    # name="video"
+    # name="graphen"
     )
 
 def graph_resonance():
@@ -185,7 +187,7 @@ def graph_resonance():
 
     frequencies = np.linspace(0, 2, 200)
     amplitudes = []
-    
+
     for f in frequencies:
         x = solve(t, 0, 0)
         amplitudes.append(np.max(np.abs(x[-fps * 5:])))
