@@ -7,31 +7,32 @@ import matplotlib.animation as animation
 
 from dataclasses import dataclass, field
 
-fps = 60 # 1 / seconds
-time = 15 # seconds
+from os import path
+directory = path.dirname(path.realpath(__file__))
+
+
+fps = 30 # 1 / seconds
+time = 10 # seconds
 
 @dataclass
 class Config():
-    D = 2.1
     # Konstanten
-    D = 2.1     # Fenderkonstante für beide Federn gleichzeitig [D] = N/m
+    D = 1.5     # Fenderkonstante [D] = N/m
     m = 0.075   # Masse [m] = kg
     k = 0.05    # Dämpfung [k] = Ns/m
 
+    x0 = 0
+    v0 = 0
+    
     # Resonanz
     resonance = False
     s = 0.1     # Auslenkung [s] = m
-    f = 0.793   # Frequenz [f] = 1/s
+    f = 0.71   # Frequenz [f] = 1/s
 
-    x0 = 0
-    v0 = 0
-
-steps = time * fps
-t = np.linspace(0, time, steps)
 
 
 def resonance_delta(t, c):
-    return c.s * np.sin(2 * np.pi * c.f * t) if c.resonance else 0
+    return c.s * np.sin(2*np.pi * c.f*t) if c.resonance else 0
 
 # solve differential equation(s)
 def solve(t, c):
@@ -47,12 +48,7 @@ def solve(t, c):
 def E_kin(v):   return 1/2 * c.m * v**2
 def E_Spann(x): return 1/2 * c.D * x**2
 
-c = Config()
-c.x0 = 1
-xt, vt = solve(t, c)
-
-# calculate amplitude (without resonance!)
-at = c.x0 * np.e ** (-(c.k/(2*c.m)) * t)
+t = np.linspace(0, time, time * fps)
 
 class Style():
     # background_color = "#fcf5e4"
@@ -62,7 +58,8 @@ class Style():
         
         options = {
             "font": {
-                # "family" : "default", "weight" : "bold",
+                "family" : "Calibri", 
+                # "weight" : "bold",
                 "size" : 16
                 },
             "axes" : {
@@ -72,43 +69,6 @@ class Style():
         
         for k, v in options.items():
             matplotlib.rc(k, **v)
-
-class EnergyVisualisation():
-    def __init__(self, ax):
-        ax.set_ylabel("$E$ in $J$")
-        ax.set_ylim(0, 1.25 * E_Spann(np.max(xt)))
-
-        self.labels = ["$E_{Spann}$", "$E_{Kin}$", "$E_{Gesamt}$"]
-        self.bar = ax.bar(self.labels, [0, 0, 0], color=["C0", "C6", "C1"])
-
-    def update(self, i):
-        for b, h in zip(self.bar, [E_Spann(xt[i]), E_kin(vt[i]), E_Spann(xt[i]) + E_kin(vt[i])]):
-            b.set_height(h)
-        return (self.bar)
-
-class GraphVisualisation():
-    def __init__(self, ax):
-        ax.set_xlabel("$t$ in $s$")
-        ax.set_xlim(0, time)
-        ax.set_ylabel("$x$ in $m$" if c.resonance else "$x$, $a$ in $m$")
-        # ax.set_ylim(-x0*1.25, x0*1.25)
-
-        ax.plot(t, xt, linestyle="--", color="C0")
-        self.line_x, = ax.plot([], [], label="$x$", color="C0")
-
-        if not c.resonance:
-            ax.plot(t, at, linestyle="--", color="C2")
-        self.line_a, = ax.plot([], [], label="$a$",  color="C2")
-        self.line_a.set_visible(not c.resonance)
-
-        if not c.resonance:
-            ax.legend()
-        
-    def update(self, i):
-        self.line_x.set_data(t[:i], xt[:i])
-        self.line_a.set_data(t[:i], at[:i])
-        return (self.line_x, self.line_a)
-
 
 class SimVisualisation():
     def __init__(self, ax):
@@ -131,19 +91,70 @@ class SimVisualisation():
                     [2*r * (m % 2 - 0.5) * (0<m<n-1)         for m in range(n)])
         
         self.line_s1.set_data(*spring( 1))
-        self.line_s2.set_data(*spring(-1))
+        # self.line_s2.set_data(*spring(-1))
         
         self.rect.set(xy=(xt[i]-r, 0-r))
         self.rect.set(width=2*r, height=2*r)
         
         return (self.line_s1, self.line_s2, self.rect)
 
-def render(classes, rows, cols, gridspec_kw = {}, name = None):
+class EnergyVisualisation():
+    def __init__(self, ax):
+        ax.set_ylabel("$E$ in $J$")
+        ax.set_ylim(0, 1.25 * E_Spann(np.max(xt)))
+
+        self.labels = ["$E_{Spann}$", "$E_{Kin}$", "$E_{Gesamt}$"]
+        self.bar = ax.bar(self.labels, [0, 0, 0], color=["C0", "C6", "C1"])
+
+    def update(self, i):
+        for b, h in zip(self.bar, [E_Spann(xt[i]), E_kin(vt[i]), E_Spann(xt[i]) + E_kin(vt[i])]):
+            b.set_height(h)
+        return (self.bar)
+
+class GraphVisualisation():
+    def __init__(self, ax):
+        ax.set_xlabel("$t$ in $s$")
+        ax.set_xlim(0, time)
+        ax.set_ylim(-1*1.25, 1*1.25)
+
+        graphs = []
+        graphs.append([xt, "$x$", "C0"])
+        
+        # plot amplitude
+        if not c.resonance and c.k != 0:
+            # calculate amplitude (without resonance!)
+            at = c.x0 * np.e ** (-(c.k/(2*c.m)) * t)
+            graphs.append([at, "$\\hat{x}$", "C2"])
+            
+            print("Messwerte t in s, a in m")
+            indicies = range(0, len(t), len(t) // 6)
+            print("t in s: ",           [round(t[i], 2)  for i in indicies])
+            print("Amplitude in m: ",   [round(at[i], 2) for i in indicies])
+
+        
+        self.lines = []
+        self.lines_data = []
+        
+        for [data, label, color] in graphs:
+            # plot dashed
+            ax.plot(t, data, linestyle="--", color=color)
+            line, = ax.plot([], [], label=label, color=color)
+            self.lines.append(line)
+            self.lines_data.append(data)
+
+        ax.set_ylabel(", ".join([label for [_, label, _] in graphs]) + " in $m$")
+        
+        if len(graphs) > 1:
+            ax.legend()
+            
+    def update(self, i):
+        for l, d in zip(self.lines, self.lines_data):
+            l.set_data(t[:i], d[:i])
+        return self.lines
+
+def render(classes, rows, cols, gridspec_kw = {}, name = None, export = False):
     Style.setup()
-    fig, axes = plt.subplots(
-        nrows=rows, ncols=cols, figsize=(16, 8), 
-        gridspec_kw=gridspec_kw
-        )
+    fig, axes = plt.subplots(rows, cols, figsize=(16, 8), gridspec_kw=gridspec_kw)
 
     visualisations = [vis(ax) for ax, vis in zip(axes, classes)]
     
@@ -154,32 +165,70 @@ def render(classes, rows, cols, gridspec_kw = {}, name = None):
         return arr
 
     anim = animation.FuncAnimation(
-        fig, animate, steps, 
+        fig, animate, time * fps, 
         interval=1/fps * 1000, blit=True, 
         fargs=(visualisations,)
         )
 
-    if name != None:
-        from os import path
-        directory = path.dirname(path.realpath(__file__))
-        
-        anim.save(path.join(directory, f"{name}.mp4"), 
-                writer = "ffmpeg", fps=fps, 
+    if export and name != None:       
+        anim.save(path.join(directory, f"videos/{name}.mp4"), 
+                writer = "ffmpeg", fps=fps,
                 # savefig_kwargs={"facecolor": Style.background_color} # needed to fix bug
                 )
-        
-    plt.show()
+    else:
+        plt.show()
 
+
+export = True
+
+# Ungedämpft
+c = Config()
+c.x0 = 0.6; c.k = 0
+xt, vt = solve(t, c)
 
 render([SimVisualisation, EnergyVisualisation],
     1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
-    # name="energie"
+    name="Ungedämpft Energie Umwandlungen", export=export
     )
 
 render([SimVisualisation, GraphVisualisation],
-    1, 2, gridspec_kw={"width_ratios": [1, 1]}, 
-    # name="graphen"
+    1, 2, gridspec_kw={"width_ratios": [2, 3]}, 
+    name="Ungedämpft Graphen", export=export
     )
+
+c = Config()
+c.x0 = 1
+xt, vt = solve(t, c)
+
+render([SimVisualisation, EnergyVisualisation],
+    1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
+    name="Gedämpft Energie Umwandlungen", export=export
+    )
+
+render([SimVisualisation, GraphVisualisation],
+    1, 2, name="Gedämpft Graphen", export=export)
+
+
+for ff in [0.5, 1.0, 1.5]:
+    c = Config()
+    c.resonance = True; c.f = ff * c.f
+    xt, vt = solve(t, c)
+
+    render([SimVisualisation, GraphVisualisation],
+        1, 2, name=f"Resonanz Frequenz {int(ff * 100)}", export=export)
+
+
+def graph_engergy():
+    Style.setup()
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 8))
+    
+    ax.set_xlabel("$t$ in $s$")
+    ax.set_ylabel("$E_{Ges}$ in $J$")
+
+    ax.plot(t, [E_Spann(xt[i]) + E_kin(vt[i]) for i in range(len(t))], lw=4, color="C1")
+    
+    plt.show()
+
 
 def graph_resonance():
     Style.setup()
@@ -189,16 +238,17 @@ def graph_resonance():
     amplitudes = []
 
     for f in frequencies:
-        x = solve(t, 0, 0)
-        amplitudes.append(np.max(np.abs(x[-fps * 5:])))
+        c = Config()
+        c.resonance = True; c.f = f
+        xt, _ = solve(t, c)
+        amplitudes.append(np.max(np.abs(xt)))
         
-    ax.set_xlabel("$f_{Resonanz}$ in $\\frac{1}{s}$")
-    ax.set_ylabel("$a$ in $m$")
+    ax.set_xlabel("$f_{Erreger}$ in $\\frac{1}{s}$")
+    ax.set_ylabel("$\hat{x}$ in $m$")
 
     ax.plot(frequencies, amplitudes, lw=4, color="C1")
 
     plt.show()
 
-def print_values():
-    print("Messwerte t in s, a in m:")
-    print([(round(t[i], 2), round(at[i], 2)) for i in range(0, len(t), len(t) // 10)])
+# graph_engergy()
+# graph_resonance()
