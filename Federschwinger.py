@@ -52,18 +52,19 @@ t = np.linspace(0, time, time * fps)
 
 class Style():
     # background_color = "#fcf5e4"
-    def setup():
+    def setup(set_style=True):
         # setup visuals
-        plt.style.use("Solarize_Light2")
+        if set_style:
+            plt.style.use("Solarize_Light2")
         
         options = {
             "font": {
                 "family" : "Calibri", 
                 # "weight" : "bold",
-                "size" : 16
+                "size" : 18
                 },
             "axes" : {
-                "labelsize" : 22
+                "labelsize" : 24
                 }
             }
         
@@ -116,7 +117,7 @@ class GraphVisualisation():
         ax.set_xlabel("$t$ in $s$")
         ax.set_xlim(0, time)
         ax.set_ylim(-1*1.25, 1*1.25)
-
+    
         graphs = []
         graphs.append([xt, "$x$", "C0"])
         
@@ -124,13 +125,12 @@ class GraphVisualisation():
         if not c.resonance and c.k != 0:
             # calculate amplitude (without resonance!)
             at = c.x0 * np.e ** (-(c.k/(2*c.m)) * t)
-            graphs.append([at, "$\\hat{x}$", "C2"])
+            graphs.append([at, "$A$", "C2"])
             
-            print("Messwerte t in s, a in m")
-            indicies = range(0, len(t), len(t) // 6)
-            print("t in s: ",           [round(t[i], 2)  for i in indicies])
-            print("Amplitude in m: ",   [round(at[i], 2) for i in indicies])
-
+            print("Messwerte t in s, A(t) in m")
+            indicies = range(0, len(t), len(t) // 4)
+            print("t in s: ",                   [round(t[i], 2)  for i in indicies])
+            print("Amplitude A(t) in m: ",      [round(at[i], 2) for i in indicies])
         
         self.lines = []
         self.lines_data = []
@@ -142,7 +142,7 @@ class GraphVisualisation():
             self.lines.append(line)
             self.lines_data.append(data)
 
-        ax.set_ylabel(", ".join([label for [_, label, _] in graphs]) + " in $m$")
+        ax.set_ylabel(", ".join([l for [_, l, _] in graphs]) + " in $m$")
         
         if len(graphs) > 1:
             ax.legend()
@@ -179,45 +179,6 @@ def render(classes, rows, cols, gridspec_kw = {}, name = None, export = False):
         plt.show()
 
 
-export = True
-
-# Ungedämpft
-c = Config()
-c.x0 = 0.6; c.k = 0
-xt, vt = solve(t, c)
-
-render([SimVisualisation, EnergyVisualisation],
-    1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
-    name="Ungedämpft Energie Umwandlungen", export=export
-    )
-
-render([SimVisualisation, GraphVisualisation],
-    1, 2, gridspec_kw={"width_ratios": [2, 3]}, 
-    name="Ungedämpft Graphen", export=export
-    )
-
-c = Config()
-c.x0 = 1
-xt, vt = solve(t, c)
-
-render([SimVisualisation, EnergyVisualisation],
-    1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
-    name="Gedämpft Energie Umwandlungen", export=export
-    )
-
-render([SimVisualisation, GraphVisualisation],
-    1, 2, name="Gedämpft Graphen", export=export)
-
-
-for ff in [0.5, 1.0, 1.5]:
-    c = Config()
-    c.resonance = True; c.f = ff * c.f
-    xt, vt = solve(t, c)
-
-    render([SimVisualisation, GraphVisualisation],
-        1, 2, name=f"Resonanz Frequenz {int(ff * 100)}", export=export)
-
-
 def graph_engergy():
     Style.setup()
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 8))
@@ -250,5 +211,60 @@ def graph_resonance():
 
     plt.show()
 
+def graph_position():
+    Style.setup(False)
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(16, 8))
+    
+    ax.set_xticks(np.arange(0, 10+1, 0.5))
+    
+    ax.set_xlabel("$t$ in $s$")
+    ax.set_xlim(0, time)
+    ax.set_ylim(-1*1.25, 1*1.25)
+
+    ax.plot(t, xt, color="C0")
+
+    ax.set_ylabel("$x(t)$ in $m$")
+    plt.show()
+
+export = False
+
+# Ungedämpft
+c = Config()
+c.x0 = 0.6; c.k = 0
+xt, vt = solve(t, c)
+
+render([SimVisualisation, EnergyVisualisation],
+    1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
+    name="Ungedämpft Energie Umwandlungen", export=export
+    )
+
+render([SimVisualisation, GraphVisualisation],
+    1, 2, gridspec_kw={"width_ratios": [2, 3]}, 
+    name="Ungedämpft Graphen", export=export
+    )
+
+
+c = Config()
+c.x0 = 1
+xt, vt = solve(t, c)
+
+render([SimVisualisation, EnergyVisualisation],
+    1, 2, gridspec_kw={"width_ratios": [3, 1]}, 
+    name="Gedämpft Energie Umwandlungen", export=export
+    )
+
+render([SimVisualisation, GraphVisualisation],
+    1, 2, name="Gedämpft Graphen", export=export)
+
 # graph_engergy()
-# graph_resonance()
+# graph_position()
+
+for ff in [0.5, 1.0, 1.5]:
+    c = Config()
+    c.resonance = True; c.f = ff * c.f
+    xt, vt = solve(t, c)
+
+    render([SimVisualisation, GraphVisualisation],
+        1, 2, name=f"Resonanz Frequenz {int(ff * 100)}", export=export)
+
+graph_resonance()
